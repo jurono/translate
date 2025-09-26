@@ -3,7 +3,17 @@ version: "3.9"
 
 volumes:
   lt_models:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/models
   lt_api_keys_db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ./data/db
 
 services:
   libretranslate:
