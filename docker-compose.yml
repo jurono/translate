@@ -1,0 +1,39 @@
+version: "3.9"
+
+
+volumes:
+  lt_models:
+  lt_api_keys_db:
+
+services:
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: libretranslate
+    restart: unless-stopped
+    # Persist: Modelle + API-Key-DB
+    volumes:
+      - lt_models:/home/libretranslate/.local/share/argos-translate/packages
+      - lt_api_keys_db:/app/db
+    environment:
+      - LT_API_KEY=${LT_API_KEY}
+    # API-Key-Pflicht + Limits/DB-Pfad
+    entrypoint: ["sh", "-c"]
+    command: >
+      "argospm update &&
+       argospm list-available | awk '/^translate-/{print $$1}' | xargs -n1 argospm install || true &&
+       [ -n \"$$LT_API_KEY\" ] && ltmanage keys --api-keys-db-path /app/db/api_keys.db add 120000 $$LT_API_KEY || true &&
+       exec libretranslate --req-limit=0 --api-keys --api-keys-db-path=/app/db/api_keys.db --char-limit=${LT_CHAR_LIMIT:-0}"
+    # Traefik (über Coolify)
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.libretranslate.rule=Host(`${SERVICE_FQDN_LIBRETRANSLATE}`) && PathPrefix(`/`)"
+      - "traefik.http.routers.libretranslate.entryPoints=https"
+      - "traefik.http.routers.libretranslate.tls=true"
+      - "traefik.http.services.libretranslate.loadbalancer.server.port=5000"
+    healthcheck:
+      test: ["CMD", "sh", "-lc", "wget -qO- http://127.0.0.1:5000/languages >/dev/null 2>&1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+
